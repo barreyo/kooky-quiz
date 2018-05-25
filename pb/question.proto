@@ -1,0 +1,25 @@
+
+syntax = "proto3";
+
+package pb;
+
+message QuestionRequest {
+    uint64 id = 1;
+}
+
+message QuestionResponse {
+    Question question = 1;
+}
+
+message Question {
+    string question = 1;
+    repeated Answer alternatives = 2;
+}
+
+message Answer {
+    string answer = 1;
+}
+
+service QuestionService {
+    rpc Get (QuestionRequest) returns (QuestionResponse) {}
+}

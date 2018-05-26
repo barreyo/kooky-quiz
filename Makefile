@@ -1,21 +1,69 @@
 
-PROJECT_NAME 		?= "kooky-quiz"
-IMAGE_NAME  		?= "kooky-core"
+# General
+PROJECT_NAME 		?= kooky-quiz
 GIT_VERSION 		:= $(shell git describe --long --dirty --abbrev=10 --always --tags)
-DOCKER_GOPATH 		?= "/go"
-DOCKER_WORKSPACE 	?= $(DOCKER_GOPATH)/src/github.com/barreyo/kooky-quiz
 
+# Docker
+DOCKER_GOPATH 		?= /go
+DOCKER_WORKSPACE 	?= $(DOCKER_GOPATH)/src/github.com/barreyo/kooky-quiz
+IMAGE_NAME  		?= kooky-base
+SERVICE_IMAGE_NAME	?= kooky-service
+IMAGE_VERSION		?= latest
+
+# Protocol buffers
+PROTO_DIR			?= pb
+
+# Services
+SERVICES_DIR		?= services
+SERVICES			?= game_session redis
+
+# Formatting variables
+BOLD				= $(tput bold)
+NORMAL				= $(tput sgr0)
+
+# Set the default command that will be passed to run target.
+# This can be customized for example: CMD=ls make docker-run. Now 'ls' will be
+# run instead of putting the user straight into the shell. Mostly there for use
+# in a CI system.
 ifndef CMD
 CMD = "/bin/ash"
 endif
 
-.PHONY: version
+.PHONY: docker-image docker-run build version proto lint clean docker-clean
 
-docker-image:
-	docker build -t $(IMAGE_NAME):$(GIT_VERSION) .
+docker-image: ## Building base images for GO services (building/running) and running tools
+	@echo $(BOLD)"--- Building base build image"$(NORMAL)
+	docker build -t $(IMAGE_NAME):$(IMAGE_VERSION) .
+	@echo $(BOLD)"--- Building base runtime image"$(NORMAL)
+	docker build -t $(SERVICE_IMAGE_NAME):$(IMAGE_VERSION) .
 
-docker-run:
-	docker run -it --rm -v $(PWD):$(DOCKER_WORKSPACE) $(IMAGE_NAME):$(GIT_VERSION) $(CMD)
+docker-run: ## Run the base image with a CMD, otherwise drops into shell
+	docker run -it --rm -v $(PWD):$(DOCKER_WORKSPACE) $(IMAGE_NAME):$(IMAGE_VERSION) $(CMD)
 
-version:
+build: proto docker-image ## Build all docker images
+	@$(foreach SERVICE, $(SERVICES), echo "-- Building ${SERVICE}" && \
+		cd $(SERVICES_DIR)/$(SERVICE) && \
+		docker build -t $(SERVICE):$(IMAGE_VERSION) . && cd - ;)
+
+version: ## Print the current version
 	@echo $(GIT_VERSION)
+
+proto: ## Build all Proto definitions
+	@echo $(BOLD)"--- Generating Proto files"$(NORMAL)
+	protoc -I $(PROTO_DIR)/ --go_out=plugins=grpc:$(PROTO_DIR)/ $(PROTO_DIR)/*.proto
+
+lint: ## Run linter on protos and source files
+	@echo $(BOLD)"--- Linting Proto files in ${PROTO_DIR}/"$(NORMAL)
+	@protoc --lint_out=. $(PROTO_DIR)/*.proto
+	@echo $(BOLD)"--- Linting GO source files in ${SERVICES_DIR}/"$(NORMAL)
+	@golint $(SERVICES_DIR)/...
+
+clean: docker-clean ## Clean up all dependencies, docker stuff and output files
+	rm -rf $(PROTO_DIR)/*.pb.go
+	go clean
+
+docker-clean:
+	docker ps -a -q | xargs docker rm
+	docker images -q | xargs docker rmi
+	docker rm $(docker ps -a -q)
+	docker rmi $(docker images -q -f dangling=true)

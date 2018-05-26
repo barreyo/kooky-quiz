@@ -1,1 +1,1 @@
-# kooky-quiz
+# Kooky Quiz

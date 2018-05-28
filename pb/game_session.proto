@@ -1,0 +1,30 @@
+
+syntax = "proto3";
+
+package pb;
+
+message NewSessionRequest {
+    string game_name = 1;
+}
+
+message NewSessionResponse {
+    string code = 1;
+    string client_id = 2;
+    string ws_addr = 3;
+}
+
+message JoinGameRequest {
+    string join_code = 1;
+    string name = 2;
+}
+
+message JoinGameResponse {
+    string ws_addr = 1;
+    string game_id = 2;
+    string client_id = 3;
+}
+
+service GameSessionService {
+    rpc New (???) returns (???) {}
+    rpc Join () returns () {}
+}

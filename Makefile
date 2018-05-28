@@ -29,13 +29,13 @@ ifndef CMD
 CMD = "/bin/ash"
 endif
 
-.PHONY: docker-image docker-run build version proto lint clean docker-clean
+.PHONY: docker-image docker-run build version proto lint clean docker-clean help
 
-docker-image: ## Building base images for GO services (building/running) and running tools
+docker-image: ## Building base images for GO services (building/running), also used for running tests and tools
 	@echo $(BOLD)"--- Building base build image"$(NORMAL)
 	docker build -t $(IMAGE_NAME):$(IMAGE_VERSION) .
 	@echo $(BOLD)"--- Building base runtime image"$(NORMAL)
-	docker build -t $(SERVICE_IMAGE_NAME):$(IMAGE_VERSION) .
+	docker build -t $(SERVICE_IMAGE_NAME):$(IMAGE_VERSION) -f Dockerfile.service .
 
 docker-run: ## Run the base image with a CMD, otherwise drops into shell
 	docker run -it --rm -v $(PWD):$(DOCKER_WORKSPACE) $(IMAGE_NAME):$(IMAGE_VERSION) $(CMD)
@@ -56,7 +56,7 @@ lint: ## Run linter on protos and source files
 	@echo $(BOLD)"--- Linting Proto files in ${PROTO_DIR}/"$(NORMAL)
 	@protoc --lint_out=. $(PROTO_DIR)/*.proto
 	@echo $(BOLD)"--- Linting GO source files in ${SERVICES_DIR}/"$(NORMAL)
-	@golint $(SERVICES_DIR)/...
+	@golint -set_exit_status $(SERVICES_DIR)/...
 
 clean: docker-clean ## Clean up all dependencies, docker stuff and output files
 	rm -rf $(PROTO_DIR)/*.pb.go
@@ -67,3 +67,6 @@ docker-clean:
 	docker images -q | xargs docker rmi
 	docker rm $(docker ps -a -q)
 	docker rmi $(docker images -q -f dangling=true)
+
+help: ## Show this help message
+	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)

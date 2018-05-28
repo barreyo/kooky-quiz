@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: game_session
+spec:
+  selector:
+    matchLabels:
+      app: game_session
+      tier: backend
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: game_session
+        tier: backend
+    spec:
+      containers:
+      - name: game_session
+        image: game_session:latest
+        imagePullPolicy: Never
+        resources:
+          requests:
+            cpu: 100m
+            memory: 100Mi
+        envFrom:
+         - configMapRef:
+             name: env-config
+        ports:
+        - name: game_session
+          containerPort: 3000

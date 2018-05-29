@@ -17,7 +17,7 @@ type server struct{}
 
 func (s server) Get(context context.Context, req *pb.QuestionRequest) (*pb.QuestionResponse, error) {
 
-	log.Printf("Recieved request with id: %d", req.Id)
+	log.Printf("Received request with id: %d", req.Id)
 
 	id := req.Id
 	answers := []*pb.Answer{
@@ -34,13 +34,13 @@ func (s server) Get(context context.Context, req *pb.QuestionRequest) (*pb.Quest
 }
 
 var (
-	crt = "config/dev-certs/server.crt"
-	key = "config/dev-certs/server.key"
+	crt = "/certs/tls.crt"
+	key = "/certs/tls.key"
 )
 
 func main() {
 	var port int
-	flag.IntVar(&port, "port", 3000, "listen port for the service")
+	flag.IntVar(&port, "port", 50051, "listen port for the service")
 	flag.Parse()
 
 	addr := fmt.Sprintf("%s:%d", "localhost", port)
@@ -55,6 +55,9 @@ func main() {
 	if err != nil {
 		log.Fatalf("Could not load TLS keys: %s", err)
 	}
+
+	api := InitAPIServer()
+	go api.Run(":443")
 
 	s := grpc.NewServer(grpc.Creds(creds))
 	pb.RegisterQuestionServiceServer(s, &server{})

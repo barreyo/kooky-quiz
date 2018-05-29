@@ -15,11 +15,11 @@ PROTO_DIR			?= pb
 
 # Services
 SERVICES_DIR		?= services
-SERVICES			?= game_session redis
+SERVICES			?= game_session redis ingress
 
 # Formatting variables
-BOLD				= $(tput bold)
-NORMAL				= $(tput sgr0)
+BOLD				?= $(tput bold)
+NORMAL				?= $(tput sgr0)
 
 # Set the default command that will be passed to run target.
 # This can be customized for example: CMD=ls make docker-run. Now 'ls' will be

@@ -1,14 +1,14 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: game_session
+  name: game-session
   labels:
-    app: game_session
+    app: game-session
     tier: backend
 spec:
   ports:
-  - port: 3000
-    targetPort: game_session
+  - port: 443
+    targetPort: game-session
   selector:
-    app: game_session
+    app: game-session
     tier: backend

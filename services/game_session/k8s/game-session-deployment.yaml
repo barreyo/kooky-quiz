@@ -1,21 +1,21 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: game_session
+  name: game-session
 spec:
   selector:
     matchLabels:
-      app: game_session
+      app: game-session
       tier: backend
   replicas: 1
   template:
     metadata:
       labels:
-        app: game_session
+        app: game-session
         tier: backend
     spec:
       containers:
-      - name: game_session
+      - name: game-session
         image: game_session:latest
         imagePullPolicy: Never
         resources:
@@ -26,5 +26,13 @@ spec:
          - configMapRef:
              name: env-config
         ports:
-        - name: game_session
-          containerPort: 3000
+        - name: game-session
+          containerPort: 443
+        volumeMounts:
+        - name: certs
+          mountPath: "/certs"
+          readOnly: true
+      volumes:
+      - name: certs
+        secret:
+          secretName: tls-certificate

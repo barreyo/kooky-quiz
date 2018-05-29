@@ -25,6 +25,6 @@ message JoinGameResponse {
 }
 
 service GameSessionService {
-    rpc New (???) returns (???) {}
-    rpc Join () returns () {}
+    rpc New (NewSessionRequest) returns (NewSessionResponse) {}
+    rpc Join (JoinGameRequest) returns (JoinGameResponse) {}
 }

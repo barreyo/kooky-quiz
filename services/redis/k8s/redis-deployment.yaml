@@ -28,9 +28,9 @@ spec:
              name: env-config
         env:
          - name: REDIS_PASSWORD
-             valueFrom:
-               secretKeyRef:
-                 name: env-secrets
-                 key: REDIS_PASSWORD
+           valueFrom:
+             secretKeyRef:
+               name: env-secrets
+               key: REDIS_PASSWORD
         ports:
         - containerPort: 6379

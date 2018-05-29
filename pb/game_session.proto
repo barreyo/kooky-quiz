@@ -20,8 +20,32 @@ message JoinGameRequest {
 
 message JoinGameResponse {
     string ws_addr = 1;
-    string game_id = 2;
-    string client_id = 3;
+    string user_id = 2;
+}
+
+message Player {
+    string name = 1;
+    string user_id = 2;
+    string ws_addr = 3;
+}
+
+enum GameState {
+    LOBBY = 0;
+    STARTED = 1;
+    COMPLETED = 2;
+}
+
+message Master {
+    string client_id = 1;
+    string ws_addr = 2;
+}
+
+message GameSession {
+    string game_id = 1;
+    string game_type = 2;
+    GameState game_state = 3;
+    repeated Player players = 4;
+    Master master = 5;
 }
 
 service GameSessionService {

@@ -4,29 +4,27 @@ import (
 	"log"
 
 	"github.com/gin-gonic/gin"
-	"github.com/twinj/uuid"
 )
 
-func genClientID() uuid.UUID {
-	return uuid.NewV4()
+type apiServer struct{}
+
+func (s apiServer) newGameHandler(c *gin.Context) {
+	log.Printf("Got a new game request")
 }
 
-func newGameHandler(c *gin.Context) {
-	clientID := genClientID()
-	log.Printf("Got a new game request: %s", clientID)
-}
-
-func joinGameHandler(c *gin.Context) {
+func (s apiServer) joinGameHandler(c *gin.Context) {
 	log.Printf("Got a join request")
 }
 
+/// InitAPIServer config a API server for the session service.
 func InitAPIServer() *gin.Engine {
 	r := gin.Default()
+	server := apiServer{}
 
-	v1 := r.Group("/api/v1/game_session")
+	v1 := r.Group("/api/v1/session")
 	{
-		v1.POST("/new_game", newGameHandler)
-		v1.POST("/join_game", joinGameHandler)
+		v1.POST("/new", server.newGameHandler)
+		v1.POST("/join", server.joinGameHandler)
 	}
 
 	return r

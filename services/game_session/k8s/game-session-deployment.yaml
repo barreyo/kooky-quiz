@@ -25,6 +25,12 @@ spec:
         envFrom:
          - configMapRef:
              name: env-config
+        env:
+         - name: REDIS_PASSWORD
+           valueFrom:
+             secretKeyRef:
+               name: env-secrets
+               key: REDIS_PASSWORD
         ports:
         - name: game-session
           containerPort: 443

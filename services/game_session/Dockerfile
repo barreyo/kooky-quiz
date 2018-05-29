@@ -13,4 +13,4 @@ EXPOSE 50051
 EXPOSE 443
 EXPOSE 8008
 
-ENTRYPOINT ["./game_session"]
+ENTRYPOINT ["./game_session", "--redis-pass", "${REDIS_PASSWORD}"]

@@ -16,6 +16,8 @@ PROTO_DIR			?= pb
 # Services
 SERVICES_DIR		?= services
 SERVICES			?= game_session redis ingress
+SERVICE_NU			:= $(shell echo $(SERVICE) | tr - _ )
+SERVICE_ND			:= $(shell echo $(SERVICE) | tr _ - )
 
 # Formatting variables
 BOLD				?= $(tput bold)
@@ -29,7 +31,8 @@ ifndef CMD
 CMD = "/bin/ash"
 endif
 
-.PHONY: docker-image docker-run build version proto lint clean docker-clean help
+.PHONY: docker-image docker-run build build-service deploy-service version \
+		proto lint clean docker-clean help
 
 docker-image: ## Building base images for GO services (building/running), also used for running tests and tools
 	@echo $(BOLD)"--- Building base build image"$(NORMAL)
@@ -44,6 +47,24 @@ build: proto docker-image ## Build all docker images
 	@$(foreach SERVICE, $(SERVICES), echo "-- Building ${SERVICE}" && \
 		cd $(SERVICES_DIR)/$(SERVICE) && \
 		docker build -t $(SERVICE):$(IMAGE_VERSION) . && cd - ;)
+
+build-service:
+ifeq ($(filter $(SERVICE_NU),$(SERVICES)),)
+	$(error SERVICE env variable needs to be set to any of: $(SERVICES))
+endif
+	@echo "-- Building ${SERVICE}"
+	cd $(SERVICES_DIR)/$(shell echo $(SERVICE) | tr - _) && \
+		docker build -t $(shell echo $(SERVICE) | tr - _):$(IMAGE_VERSION) .
+
+deploy-service:
+ifeq ($(filter $(SERVICE_NU),$(SERVICES)),)
+	$(error SERVICE env variable needs to be set to any of: $(SERVICES))
+endif
+	@echo "-- Deploying ${SERVICE}"
+	@kubectl delete -f $(SERVICES_DIR)/$(SERVICE_NU)/k8s/$(SERVICE_ND)-service.yaml \
+		-f $(SERVICES_DIR)/$(SERVICE_NU)/k8s/$(SERVICE_ND)-deployment.yaml || :
+	@kubectl create -f $(SERVICES_DIR)/$(SERVICE_NU)/k8s/$(SERVICE_ND)-service.yaml \
+		-f $(SERVICES_DIR)/$(SERVICE_NU)/k8s/$(SERVICE_ND)-deployment.yaml
 
 version: ## Print the current version
 	@echo $(GIT_VERSION)

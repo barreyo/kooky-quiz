@@ -50,6 +50,11 @@ func (s server) New(context context.Context, req *pb.NewSessionRequest) (*pb.New
 
 	// Check if the game code is in use
 	for i := 0; i <= 100; i++ {
+
+		if i >= 100 {
+			return nil, fmt.Errorf("Failed to generate game code")
+		}
+
 		exists, err := redis.Bool(c.Do("EXISTS", gameCode.code))
 		if err != nil {
 			log.Fatalf("Redis error doing EXISTS call: %s", err)
@@ -59,10 +64,8 @@ func (s server) New(context context.Context, req *pb.NewSessionRequest) (*pb.New
 		if exists {
 			log.Printf("Game Code existed already, trying again. (%d / 100)", i)
 			continue
-		}
-
-		if i >= 100 {
-			return nil, fmt.Errorf("Failed to generate game code")
+		} else {
+			break
 		}
 	}
 
@@ -86,6 +89,7 @@ func (s server) New(context context.Context, req *pb.NewSessionRequest) (*pb.New
 	var buffer bytes.Buffer
 	buffer.Write(gameSessionJSON)
 
+	// TODO: Check errors here as well
 	c.Do("SET", gameCode.code, buffer.String())
 
 	return &pb.NewSessionResponse{
@@ -141,10 +145,10 @@ func newDBPool(addr string, pass string) *redis.Pool {
 			if err != nil {
 				panic(err.Error())
 			}
-			_, err = c.Do("AUTH", pass)
-			if err != nil {
-				panic(err.Error())
-			}
+			// _, err = c.Do("AUTH", pass)
+			// if err != nil {
+			//	panic(err.Error())
+			// }
 			return c, err
 		},
 	}
@@ -178,12 +182,13 @@ func main() {
 
 	dbPool := newDBPool(redisAddr, redisPassword)
 
-	log.Printf("Starting API server on port 443")
-	api := InitAPIServer()
-	go api.Run(":443")
-
 	s := grpc.NewServer(grpc.Creds(creds))
-	pb.RegisterGameSessionServiceServer(s, &server{gameCodeSize, dbPool})
+	grpcClient := &server{gameCodeSize, dbPool}
+	pb.RegisterGameSessionServiceServer(s, grpcClient)
+
+	log.Printf("Starting API server on port 443")
+	api := InitAPIServer(grpcClient)
+	go api.Run(":443")
 
 	reflection.Register(s)
 	log.Println("Service Reflection registered")

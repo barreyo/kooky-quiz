@@ -5,6 +5,7 @@ import (
 	"time"
 )
 
+// A game code that indentifies a game and also acts as access token
 type GameCode struct {
 	code string
 }

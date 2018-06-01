@@ -2,12 +2,11 @@ package main
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
 	"time"
 
+	"github.com/barreyo/kooky-quiz/lib/cors"
 	"github.com/barreyo/kooky-quiz/pb"
 	"github.com/gin-gonic/gin"
 )
@@ -25,31 +24,28 @@ func (s apiServer) newGameHandler(c *gin.Context) {
 	res, err := s.rpcServer.New(s.context, &req)
 
 	if err != nil {
+		// TODO: Do this error wrapping in a middleware
 		c.AbortWithStatusJSON(400, gin.H{"error": gin.H{"message": err.Error(), "code": 400}})
 		return
 	}
 
+	// TODO: Do this wrapping in a middleware
 	c.JSON(http.StatusOK, gin.H{"data": res})
 }
 
 func (s apiServer) joinGameHandler(c *gin.Context) {
 	log.Printf("Got a join request through the API")
+
 	var req pb.JoinGameRequest
 	c.BindJSON(&req)
 	res, err := s.rpcServer.Join(s.context, &req)
 
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, err)
+		c.AbortWithStatusJSON(400, gin.H{"error": gin.H{"message": err.Error(), "code": 400}})
 		return
 	}
 
-	resJSON, err := json.Marshal(&res)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, fmt.Errorf("Failed to marshal request"))
-		return
-	}
-
-	c.JSON(http.StatusOK, resJSON)
+	c.JSON(http.StatusOK, gin.H{"data": res})
 }
 
 // InitAPIServer configs an API server for the session service.
@@ -64,6 +60,7 @@ func InitAPIServer(rpcServer *server) *gin.Engine {
 		v1.POST("/new", server.newGameHandler)
 		v1.POST("/join", server.joinGameHandler)
 	}
+	cors.SetCORS(r)
 
 	return r
 }

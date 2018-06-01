@@ -3,4 +3,6 @@ kind: ConfigMap
 metadata:
     name: env-config
 data:
+    KOOKY_HOSTNAME: "dev.kooky.app"
     REDIS_PORT: "6379"
+    GIN_MODE: "debug"

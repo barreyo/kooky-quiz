@@ -36,9 +36,9 @@ endif
 
 docker-image: ## Building base images for GO services (building/running), also used for running tests and tools
 	@echo $(BOLD)"--- Building base build image"$(NORMAL)
-	docker build -t $(IMAGE_NAME):$(IMAGE_VERSION) .
+	@docker build -t $(IMAGE_NAME):$(IMAGE_VERSION) .
 	@echo $(BOLD)"--- Building base runtime image"$(NORMAL)
-	docker build -t $(SERVICE_IMAGE_NAME):$(IMAGE_VERSION) -f Dockerfile.service .
+	@docker build -t $(SERVICE_IMAGE_NAME):$(IMAGE_VERSION) -f Dockerfile.service .
 
 docker-run: ## Run the base image with a CMD, otherwise drops into shell
 	docker run -it --rm -v $(PWD):$(DOCKER_WORKSPACE) $(IMAGE_NAME):$(IMAGE_VERSION) $(CMD)
@@ -53,8 +53,8 @@ ifeq ($(filter $(SERVICE_NU),$(SERVICES)),)
 	$(error SERVICE env variable needs to be set to any of: $(SERVICES))
 endif
 	@echo "-- Building ${SERVICE}"
-	cd $(SERVICES_DIR)/$(shell echo $(SERVICE) | tr - _) && \
-		docker build -t $(shell echo $(SERVICE) | tr - _):$(IMAGE_VERSION) .
+	@cd $(SERVICES_DIR)/$(shell echo $(SERVICE) | tr - _) && \
+		docker build --no-cache -t $(shell echo $(SERVICE) | tr - _):$(IMAGE_VERSION) .
 
 deploy-service:
 ifeq ($(filter $(SERVICE_NU),$(SERVICES)),)

@@ -7,9 +7,12 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"os"
+	"strings"
+	"unicode/utf8"
 
 	"github.com/barreyo/kooky-quiz/pb"
-	"github.com/garyburd/redigo/redis"
+	"github.com/gomodule/redigo/redis"
 	"github.com/twinj/uuid"
 	context "golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -20,6 +23,7 @@ import (
 type server struct {
 	gameCodeSize int
 	dbPool       *redis.Pool
+	hostName     string
 }
 
 var (
@@ -29,6 +33,10 @@ var (
 
 func genClientID() uuid.UUID {
 	return uuid.NewV4()
+}
+
+func (s server) formatWSAddr(gameName, code string, client uuid.UUID) string {
+	return fmt.Sprintf("ws://%s/ws/%s/%s/%s", s.hostName, gameName, code, client)
 }
 
 func (s server) New(context context.Context, req *pb.NewSessionRequest) (*pb.NewSessionResponse, error) {
@@ -57,7 +65,7 @@ func (s server) New(context context.Context, req *pb.NewSessionRequest) (*pb.New
 
 		exists, err := redis.Bool(c.Do("EXISTS", gameCode.code))
 		if err != nil {
-			log.Fatalf("Redis error doing EXISTS call: %s", err)
+			log.Printf("Redis error doing EXISTS call: %s", err)
 			continue
 		}
 
@@ -70,7 +78,7 @@ func (s server) New(context context.Context, req *pb.NewSessionRequest) (*pb.New
 	}
 
 	// TODO: No hardcoding of the adress
-	wsAddr := fmt.Sprintf("ws://dev.kooky.app/ws/%s/%s/%s", req.GameName, gameCode.code, clientID)
+	wsAddr := s.formatWSAddr(req.GameName, gameCode.code, clientID)
 	var players []*pb.Player
 
 	gameSession := &pb.GameSession{
@@ -81,7 +89,6 @@ func (s server) New(context context.Context, req *pb.NewSessionRequest) (*pb.New
 		Master:    &pb.Master{ClientId: fmt.Sprintf("%s", clientID), WsAddr: wsAddr},
 	}
 	gameSessionJSON, err := json.Marshal(gameSession)
-
 	if err != nil {
 		return nil, fmt.Errorf("Failed to create the game state. %s", err)
 	}
@@ -90,7 +97,9 @@ func (s server) New(context context.Context, req *pb.NewSessionRequest) (*pb.New
 	buffer.Write(gameSessionJSON)
 
 	// TODO: Check errors here as well
-	c.Do("SET", gameCode.code, buffer.String())
+	c.Send("SET", gameCode.code, buffer.String())
+	c.Send("EXPIRE", gameCode.code, 1*60*60)
+	c.Do("EXEC")
 
 	return &pb.NewSessionResponse{
 		Code:     gameCode.code,
@@ -102,14 +111,24 @@ func (s server) Join(context context.Context, req *pb.JoinGameRequest) (*pb.Join
 
 	log.Printf("Join game request to game: %s, for user %s", req.JoinCode, req.Name)
 
+	playerName := strings.TrimSpace(req.Name)
+
+	if utf8.RuneCountInString(playerName) > 20 {
+		return nil, fmt.Errorf("Name too long, only 20 characters allowed")
+	}
+
+	if playerName == "" {
+		return nil, fmt.Errorf("Name cannot be empty")
+	}
+
 	// Get hold of a DB connection from the pool
 	c := s.dbPool.Get()
 	defer c.Close()
 
 	exists, err := redis.Bool(c.Do("EXISTS", req.JoinCode))
 	if err != nil {
-		log.Fatalf("DB Connection error: %s", err)
-		return nil, err
+		log.Printf("DB Connection error: %s", err)
+		return nil, fmt.Errorf("DB Connection error")
 	}
 
 	if !exists {
@@ -117,21 +136,51 @@ func (s server) Join(context context.Context, req *pb.JoinGameRequest) (*pb.Join
 	}
 
 	gameStateStr, err := redis.String(c.Do("GET", req.JoinCode))
-
 	if err != nil {
-		log.Fatalf("DB Connection error: %s", err)
-		return nil, err
+		log.Printf("DB Connection error: %s", err)
+		return nil, fmt.Errorf("DB Connection error")
 	}
 
 	gameState := pb.GameSession{}
 	err = json.Unmarshal([]byte(gameStateStr), &gameState)
-
 	if err != nil {
-		log.Fatalf("Failed to get state from DB: %s", err)
-		return nil, err
+		log.Printf("Failed to get state from DB: %s", err)
+		return nil, fmt.Errorf("DB Connection error")
 	}
 
-	return &pb.JoinGameResponse{}, nil
+	for _, p := range gameState.GetPlayers() {
+		if p.Name == playerName {
+			return nil, fmt.Errorf("The name '%s' is already in use", playerName)
+		}
+	}
+
+	clientID := genClientID()
+	newPlayer := &pb.Player{
+		Name:   playerName,
+		UserId: fmt.Sprintf("%s", clientID),
+		WsAddr: s.formatWSAddr(gameState.GameType, gameState.GameId, clientID),
+	}
+	gameState.Players = append(gameState.Players, newPlayer)
+
+	stateMarshalled, err := json.Marshal(gameState)
+	if err != nil {
+		fmt.Printf("Marshal error for new game state: %s", err)
+		return nil, fmt.Errorf("Failed to update game state with new player")
+	}
+
+	var buffer bytes.Buffer
+	buffer.Write(stateMarshalled)
+
+	// TODO: Check errors here as well, might have lost connetion to DB etc
+	// 		 do some retries
+	c.Send("SET", req.JoinCode, buffer.String())
+	c.Send("EXPIRE", req.JoinCode, 5*60*60) // Keep game around for 5h if past lobby state
+	c.Do("EXEC")
+
+	return &pb.JoinGameResponse{
+		WsAddr: newPlayer.WsAddr,
+		UserId: newPlayer.UserId,
+	}, nil
 }
 
 func newDBPool(addr string, pass string) *redis.Pool {
@@ -164,17 +213,19 @@ func main() {
 	flag.StringVar(&redisPassword, "redis-pass", "test", "auth for redis")
 	flag.Parse()
 
-	addr := fmt.Sprintf("%s:%d", "localhost", port)
+	hostName := os.Getenv("KOOKY_HOSTNAME")
+
+	addr := fmt.Sprintf(":%d", port)
 	lis, err := net.Listen("tcp", addr)
 	if err != nil {
-		log.Fatalf("Failed to listen on %s: %v", addr, err)
+		log.Printf("Failed to listen on %s: %v", addr, err)
 	}
 	log.Printf("GRPC service listening on %s", addr)
 
 	// Create the TLS credentials
 	creds, err := credentials.NewServerTLSFromFile(crt, key)
 	if err != nil {
-		log.Fatalf("Could not load TLS keys: %s", err)
+		log.Printf("Could not load TLS keys: %s", err)
 	}
 
 	redisAddr := fmt.Sprintf("%s:%d", redisName, redisPort)
@@ -183,7 +234,7 @@ func main() {
 	dbPool := newDBPool(redisAddr, redisPassword)
 
 	s := grpc.NewServer(grpc.Creds(creds))
-	grpcClient := &server{gameCodeSize, dbPool}
+	grpcClient := &server{gameCodeSize, dbPool, hostName}
 	pb.RegisterGameSessionServiceServer(s, grpcClient)
 
 	log.Printf("Starting API server on port 443")
@@ -195,6 +246,6 @@ func main() {
 	log.Println("Serving Session service...")
 
 	if err := s.Serve(lis); err != nil {
-		log.Fatalf("Failed to serve %v", err)
+		log.Printf("Failed to serve %v", err)
 	}
 }

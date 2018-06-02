@@ -16,7 +16,7 @@ func SetCORS(router *gin.Engine) {
 	origin := fmt.Sprintf("https://%s", hostName)
 	router.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{origin},
-		AllowMethods:     []string{"POST", "GET"},
+		AllowMethods:     []string{"POST", "GET", "OPTIONS"},
 		AllowHeaders:     []string{"Origin"},
 		ExposeHeaders:    []string{"Content-Length", "Content-Type"},
 		AllowCredentials: true,

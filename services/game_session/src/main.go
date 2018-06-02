@@ -44,7 +44,9 @@ func (s server) New(context context.Context, req *pb.NewSessionRequest) (*pb.New
 	log.Printf("New Game request for game: %s", req.GameName)
 
 	// Find out if this is a game that exist and we can start a session for it
-	// TODO: This should be recorded in a database or something
+	// TODO: This should be recorded and fetched from some persistant storage
+	// 		 Maybe let games register with DNS and stuff so that the session
+	//		 handler can route requests.
 	if req.GameName != "kooky-quiz" {
 		return nil, fmt.Errorf("%s is not a valid game type", req.GameName)
 	}

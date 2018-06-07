@@ -79,7 +79,6 @@ func (s server) New(context context.Context, req *pb.NewSessionRequest) (*pb.New
 		}
 	}
 
-	// TODO: No hardcoding of the adress
 	wsAddr := s.formatWSAddr(req.GameName, gameCode.code, clientID)
 	var players []*pb.Player
 

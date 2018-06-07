@@ -4,9 +4,9 @@ kind: Ingress
 metadata:
   name: kooky-ingress
   annotations:
-    nginx.org/grpc-services: "grpc-svc"
-    nginx.org/websocket-services: "ws-svc"
-    nginx.org/ssl-services: "ssl-svc"
+    nginx.org/grpc-services: "game-session"
+    nginx.org/websocket-services: "game-session"
+    nginx.org/ssl-services: "game-session"
     kubernetes.io/ingress.class: "nginx"
     ingress.kubernetes.io/ssl-redirect: “true”
     nginx.ingress.kubernetes.io/configuration-snippet: |

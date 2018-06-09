@@ -36,7 +36,7 @@ func genClientID() uuid.UUID {
 }
 
 func (s server) formatWSAddr(gameName, code string, client uuid.UUID) string {
-	return fmt.Sprintf("ws://%s/ws/%s/%s/%s", s.hostName, gameName, code, client)
+	return fmt.Sprintf("wss://%s/ws/%s/%s/%s", s.hostName, gameName, code, client)
 }
 
 func (s server) New(context context.Context, req *pb.NewSessionRequest) (*pb.NewSessionResponse, error) {

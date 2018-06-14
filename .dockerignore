@@ -1,0 +1,10 @@
+
+.dockerignore
+.gitignore
+
+README.md
+Dockerfile
+Dockerfile.service
+
+docs
+build

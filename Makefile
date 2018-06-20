@@ -31,8 +31,8 @@ ifndef CMD
 CMD = "/bin/ash"
 endif
 
-.PHONY: docker-image docker-run build build-service deploy-service version \
-		proto lint clean docker-clean help
+.PHONY: docker-image docker-run build build-service deploy-service \
+		version proto lint clean docker-clean help
 
 docker-image: ## Building base images for GO services (building/running), also used for running tests and tools
 	@echo $(BOLD)"--- Building base build image"$(NORMAL)

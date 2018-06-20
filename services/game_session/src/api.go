@@ -97,7 +97,7 @@ func (s apiServer) wsHandler(c *gin.Context) {
 		return
 	}
 
-	client := &Client{hub: s.wsHub, conn: conn, send: make(chan []byte, 256)}
+	client := &Client{hub: s.wsHub, conn: conn, send: make(chan []byte, 256), UserID: userID}
 	client.hub.register <- client
 
 	go client.readPump()

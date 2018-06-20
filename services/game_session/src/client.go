@@ -1,17 +1,11 @@
 package main
 
 import (
-	"bytes"
 	"log"
 	"net/http"
 	"time"
 
 	"github.com/gorilla/websocket"
-)
-
-var (
-	newline = []byte{'\n'}
-	space   = []byte{' '}
 )
 
 const (
@@ -45,6 +39,13 @@ type Client struct {
 
 	// Buffered channel of outbound messages.
 	send chan []byte
+
+	UserID string
+}
+
+type SocketMessage struct {
+	targets []string
+	message []byte
 }
 
 // readPump pumps messages from the websocket connection to the hub.
@@ -68,7 +69,9 @@ func (c *Client) readPump() {
 			}
 			break
 		}
-		message = bytes.TrimSpace(bytes.Replace(message, newline, space, -1))
+
+		// Convert
+
 		c.hub.broadcast <- message
 	}
 }
@@ -94,7 +97,7 @@ func (c *Client) writePump() {
 				return
 			}
 
-			w, err := c.conn.NextWriter(websocket.TextMessage)
+			w, err := c.conn.NextWriter(websocket.BinaryMessage)
 			if err != nil {
 				return
 			}
@@ -117,20 +120,4 @@ func (c *Client) writePump() {
 			}
 		}
 	}
-}
-
-// serveWs handles websocket requests from the peer.
-func serveWs(hub *Hub, w http.ResponseWriter, r *http.Request) {
-	conn, err := upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		log.Println(err)
-		return
-	}
-	client := &Client{hub: hub, conn: conn, send: make(chan []byte, 256)}
-	client.hub.register <- client
-
-	// Allow collection of memory referenced by the caller by doing all work in
-	// new goroutines.
-	go client.writePump()
-	go client.readPump()
 }
